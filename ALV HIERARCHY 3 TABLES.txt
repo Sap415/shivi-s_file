@@ -1,0 +1,298 @@
+REPORT ZALV_HIERARCHICAL_SALES_REPO2.
+
+TABLES : VBAK,VBAP,KNA1.
+
+TYPE-POOLS SLIS.
+
+TYPES: BEGIN OF ST_VBAK,
+         VBELN TYPE VBAK-VBELN,
+         ERDAT TYPE VBAK-ERDAT,
+         ERZET TYPE VBAK-ERZET,
+         ERNAM TYPE VBAK-ERNAM,
+         KUNNR TYPE VBAK-KUNNR,
+       END OF ST_VBAK.
+
+DATA: IT_VBAK TYPE TABLE OF ST_VBAK,
+      WA_VBAK TYPE ST_VBAK.
+
+TYPES: BEGIN OF ST_VBAP,
+         VBELN TYPE VBAP-VBELN,
+         POSNR TYPE VBAP-POSNR,
+         MATNR TYPE VBAP-MATNR,
+         MATKL TYPE VBAP-MATKL,
+       END OF ST_VBAP.
+
+DATA: IT_VBAP TYPE TABLE OF ST_VBAP,
+      WA_VBAP TYPE ST_VBAP.
+
+TYPES: BEGIN OF ST_KNA1,
+         KUNNR TYPE KNA1-KUNNR,
+         LAND1 TYPE KNA1-LAND1,
+       END OF ST_KNA1.
+
+DATA: IT_KNA1 TYPE TABLE OF ST_KNA1,
+      WA_KNA1 TYPE ST_KNA1.
+
+
+TYPES: BEGIN OF ST_HEADER,
+         VBELN TYPE VBAK-VBELN,
+         ERDAT TYPE VBAK-ERDAT,
+         ERZET TYPE VBAK-ERZET,
+         ERNAM TYPE VBAK-ERNAM,
+         KUNNR TYPE VBAK-KUNNR,
+         LAND1 TYPE KNA1-LAND1,
+       END OF ST_HEADER.
+
+TYPES: BEGIN OF ST_ITEM,
+         VBELN TYPE VBAP-VBELN,
+         POSNR TYPE VBAP-POSNR,
+         MATNR TYPE VBAP-MATNR,
+         MATKL TYPE VBAP-MATKL,
+       END OF ST_ITEM.
+
+DATA: IT_HEADER TYPE TABLE OF ST_HEADER,
+      WA_HEADER TYPE ST_HEADER,
+      IT_ITEM   TYPE TABLE OF ST_ITEM,
+      WA_ITEM   TYPE ST_ITEM,
+      IT_FC     TYPE SLIS_T_FIELDCAT_ALV,
+      WA_FC     TYPE SLIS_FIELDCAT_ALV,
+      KEY       TYPE SLIS_KEYINFO_ALV.
+
+SELECTION-SCREEN BEGIN OF BLOCK B1.
+SELECT-OPTIONS : S_VBELN FOR VBAK-VBELN.
+SELECTION-SCREEN END OF BLOCK B1.
+
+START-OF-SELECTION.
+  PERFORM GET_DATA.
+  PERFORM LOAD_DATA.
+  PERFORM FCAT.
+  PERFORM CREATE_HIERARCHY.
+  PERFORM DISPLAY.
+*&---------------------------------------------------------------------*
+*&      Form  GET_VBAK
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM GET_DATA .
+
+  SELECT VBELN
+         ERDAT
+         ERZET
+         ERNAM
+         KUNNR
+         FROM VBAK INTO TABLE IT_VBAK
+         WHERE VBELN IN S_VBELN.
+    IF SY-SUBRC = 0.
+      SORT IT_VBAK BY VBELN.
+      ENDIF.
+
+
+  IF IT_VBAK IS NOT INITIAL.
+    SELECT VBELN
+          POSNR
+          MATNR
+          MATKL
+          FROM VBAP INTO TABLE IT_VBAP
+          FOR ALL ENTRIES IN IT_VBAK
+          WHERE VBELN = IT_VBAK-VBELN.
+IF SY-SUBRC = 0.
+  SORT IT_VBAP BY VBELN.
+  ENDIF.
+
+    SELECT KUNNR
+           LAND1
+           FROM KNA1 INTO TABLE IT_KNA1
+           FOR ALL ENTRIES IN IT_VBAK
+           WHERE KUNNR = IT_VBAK-KUNNR.
+IF SY-SUBRC = 0.
+  SORT IT_KNA1 BY KUNNR.
+  ENDIF.
+ENDIF.
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*&      Form  LOAD_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM LOAD_DATA .
+  LOOP AT IT_VBAK INTO WA_VBAK.
+    WA_HEADER-VBELN = WA_VBAK-VBELN.
+    WA_HEADER-ERDAT = WA_VBAK-ERDAT.
+    WA_HEADER-ERZET = WA_VBAK-ERZET.
+    WA_HEADER-ERNAM = WA_VBAK-ERNAM.
+    WA_HEADER-KUNNR = WA_VBAK-KUNNR.
+    CLEAR WA_KNA1.
+    READ TABLE IT_KNA1 INTO WA_KNA1 WITH KEY KUNNR = WA_VBAK-KUNNR BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      WA_HEADER-LAND1 = WA_KNA1-LAND1.
+    ENDIF.
+    APPEND WA_HEADER TO IT_HEADER.
+    CLEAR WA_HEADER.
+  ENDLOOP.
+
+  LOOP AT IT_VBAP INTO WA_VBAP.
+    WA_ITEM-VBELN = WA_VBAP-VBELN.
+    WA_ITEM-POSNR = WA_VBAP-POSNR.
+    WA_ITEM-MATNR = WA_VBAP-MATNR.
+    WA_ITEM-MATKL = WA_VBAP-MATKL.
+    APPEND WA_ITEM TO IT_ITEM.
+    CLEAR WA_ITEM.
+  ENDLOOP.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  FCAT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM FCAT .
+
+  WA_FC-COL_POS = '1'.
+  WA_FC-FIELDNAME = 'VBELN'.
+  WA_FC-TABNAME = 'IT_HEADER'.
+  WA_FC-SELTEXT_M = 'SALES DOC NO'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+  WA_FC-COL_POS = '2'.
+  WA_FC-FIELDNAME = 'ERDAT'.
+  WA_FC-TABNAME = 'IT_HEADER'.
+  WA_FC-SELTEXT_M = 'DATE'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+  WA_FC-COL_POS = '3'.
+  WA_FC-FIELDNAME = 'ERZET'.
+  WA_FC-TABNAME = 'IT_HEADER'.
+  WA_FC-SELTEXT_M = 'ENTRY TIME'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+  WA_FC-COL_POS = '4'.
+  WA_FC-FIELDNAME = 'ERNAM'.
+  WA_FC-TABNAME = 'IT_HEADER'.
+  WA_FC-SELTEXT_M = 'NAME'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+
+  WA_FC-COL_POS = '5'.
+  WA_FC-FIELDNAME = 'KUNNR'.
+  WA_FC-TABNAME = 'IT_HEADER'.
+  WA_FC-SELTEXT_M = 'CUSTOMER NO'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+  WA_FC-COL_POS = '6'.
+  WA_FC-FIELDNAME = 'LAND1'.
+  WA_FC-TABNAME = 'IT_HEADER'.
+  WA_FC-SELTEXT_M = 'COUNTRY KEY'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+  WA_FC-COL_POS = '7'.
+  WA_FC-FIELDNAME = 'POSNR'.
+  WA_FC-TABNAME = 'IT_ITEM'.
+  WA_FC-SELTEXT_M = 'SALES DOC ITEM'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+  WA_FC-COL_POS = '8'.
+  WA_FC-FIELDNAME = 'MATNR'.
+  WA_FC-TABNAME = 'IT_ITEM'.
+  WA_FC-SELTEXT_M = 'MATERIAL NO'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+  WA_FC-COL_POS = '9'.
+  WA_FC-FIELDNAME = 'MATKL'.
+  WA_FC-TABNAME = 'IT_ITEM'.
+  WA_FC-SELTEXT_M = 'MATERIAL DES'.
+  APPEND WA_FC TO IT_FC.
+  CLEAR WA_FC.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_HIERARCHY
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM CREATE_HIERARCHY .
+  KEY-HEADER01 = 'VBELN'.
+  KEY-ITEM01 = 'VBELN'.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM DISPLAY .
+
+  CALL FUNCTION 'REUSE_ALV_HIERSEQ_LIST_DISPLAY'
+    EXPORTING
+*     I_INTERFACE_CHECK       = ' '
+      I_CALLBACK_PROGRAM      = SY-REPID
+*     I_CALLBACK_PF_STATUS_SET       = ' '
+*     I_CALLBACK_USER_COMMAND = ' '
+*     IS_LAYOUT               =
+      IT_FIELDCAT             = IT_FC
+*     IT_EXCLUDING            =
+*     IT_SPECIAL_GROUPS       =
+*     IT_SORT                 =
+*     IT_FILTER               =
+*     IS_SEL_HIDE             =
+*     I_SCREEN_START_COLUMN   = 0
+*     I_SCREEN_START_LINE     = 0
+*     I_SCREEN_END_COLUMN     = 0
+*     I_SCREEN_END_LINE       = 0
+*     I_DEFAULT               = 'X'
+*     I_SAVE                  = ' '
+*     IS_VARIANT              =
+*     IT_EVENTS               =
+*     IT_EVENT_EXIT           =
+      I_TABNAME_HEADER        = 'IT_HEADER'
+      I_TABNAME_ITEM          = 'IT_ITEM'
+      I_STRUCTURE_NAME_HEADER = 'ST_HEADER'
+      I_STRUCTURE_NAME_ITEM   = 'ST_ITEM'
+      IS_KEYINFO              = KEY
+*     IS_PRINT                =
+*     IS_REPREP_ID            =
+*     I_BYPASSING_BUFFER      =
+*     I_BUFFER_ACTIVE         =
+*     IR_SALV_HIERSEQ_ADAPTER =
+*     IT_EXCEPT_QINFO         =
+*     I_SUPPRESS_EMPTY_DATA   = ABAP_FALSE
+* IMPORTING
+*     E_EXIT_CAUSED_BY_CALLER =
+*     ES_EXIT_CAUSED_BY_USER  =
+    TABLES
+      T_OUTTAB_HEADER         = IT_HEADER
+      T_OUTTAB_ITEM           = IT_ITEM
+* EXCEPTIONS
+*     PROGRAM_ERROR           = 1
+*     OTHERS                  = 2
+    .
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+ENDFORM.
