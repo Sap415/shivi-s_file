@@ -1,0 +1,531 @@
+REPORT ZTEST111.
+
+*tables: vbak.
+*data: lt_vbak type table of vbak with HEADER LINE.
+*DATA: LT_COUNT like TABLE OF RSTRUCINFO WITH HEADER LINE.
+**
+**
+*  SELECT  *
+*     FROM vbak
+*     INTO TABLE lt_vbak
+*     WHERE vbeln = '0000004969'.
+**
+*    CALL FUNCTION 'GET_COMPONENT_LIST'
+*      EXPORTING
+*        PROGRAM          = SY-REPID
+*        FIELDNAME        = 'lt_vbak'
+*      TABLES
+*        COMPONENTS       = LT_COUNT
+*              .
+*
+*DESCRIBE TABLE lt_count lines data(cnt).
+*if cnt = 10 or cnt = 21 .
+*  write: 'sr'.
+*else.
+*  write: 'er'.
+*endif.
+*
+*BREAK-POINT.
+
+
+TABLES: sscrfields.
+DATA: G_UCOMM TYPE SY-UCOMM.
+TYPES : BEGIN OF ty_upd_fom,
+          ordertyp  TYPE char4,        ""order type
+          uni_key   TYPE string,       ""unique key
+          sorg      TYPE string,       ""sales org
+          distchanl TYPE string,       ""distribution chanl
+          division  TYPE string,       ""division
+          soldto    TYPE string,       ""sold to party
+          sold_name TYPE string,       ""sold to party name
+          shipto    TYPE string,       ""ship to party
+          ship_name TYPE string,       ""ship to party name
+          street    TYPE string,       ""street
+          pst_cd    TYPE string,       ""postl code
+          city      TYPE string,       ""city
+          country   TYPE string,       ""country
+          region    TYPE string,       ""region
+          adh_no    TYPE string,       ""addhar no
+          pan_no    TYPE string,       ""pan no
+          mob_no    TYPE string,       ""mobile no
+          line_itm  TYPE string,       ""line itm
+          material  TYPE string,       ""material
+          quantity  TYPE string,       ""quantity
+          uom       TYPE string,       ""uom
+        END OF ty_upd_fom.
+
+TYPES : BEGIN OF ty_upd_LFO,
+          ordertyp  TYPE char4,        ""order type
+          uni_key   TYPE string,       ""unique key
+          sorg      TYPE string,       ""sales org
+          distchanl TYPE string,       ""distribution chanl
+          division  TYPE string,       ""division
+          soldto    TYPE string,       ""sold to party
+          shipto    TYPE string,       ""ship to party
+          adh_no    TYPE string,       ""addhar no
+          line_itm  TYPE string,       ""line itm
+          material  TYPE string,       ""material
+          quantity  TYPE string,       ""quantity
+          uom       TYPE string,       ""uom
+        END OF ty_upd_LFO.
+DATA: it_upd_fom TYPE TABLE OF ty_upd_fom,
+      LS         TYPE          TY_UPD_FOM,
+      IT_UPD_LFO TYPE TABLE OF TY_UPD_LFO,
+      LS1        TYPE          TY_UPD_LFO.
+
+data:lv_filename type string,
+     lv_path type string,
+     lv_fullpath type string,
+     lv_result type I,
+     lv_default type string,
+     lv_fname type string.
+
+DATA: BEGIN OF LS_HEADER,
+       NAME TYPE C LENGTH 30,
+      END OF LS_HEADER.
+DATA: HEADER LIKE TABLE OF LS_HEADER.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME .
+  PARAMETERS : p_file TYPE rlgrap-filename." OBLIGATORY.
+SELECTION-SCREEN END OF BLOCK b1.
+
+SELECTION-SCREEN BEGIN OF block b2 WITH FRAME TITLE text-110.
+  SELECTION-SCREEN PUSHBUTTON /1(35) p_but1 user-command but1.
+  SELECTION-SCREEN PUSHBUTTON /1(35) p_but2 user-command but2.
+SELECTION-SCREEN END OF BLOCK b2.
+
+
+INITIALIZATION.
+p_but1 = 'Download excel for regular customer'.
+p_but2 = 'Download excel for one time customer'.
+*
+AT SELECTION-SCREEN.
+  IF sscrfields-ucomm EQ 'BUT1' OR
+      sscrfields-ucomm EQ 'BUT2'.
+    g_ucomm = sscrfields-ucomm.
+  ENDIF.
+
+CASE G_UCOMM.
+  WHEN 'BUT1'.
+    PERFORM LFO.
+  WHEN 'BUT2'.
+    perform fom.
+  ENDCASE.
+*START-OF-SELECTION.
+
+
+
+
+*
+*AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+*
+*  CALL FUNCTION 'F4_FILENAME'
+*    EXPORTING
+*      program_name  = syst-cprog
+*      dynpro_number = syst-dynnr
+*      field_name    = ' '
+*    IMPORTING
+*      file_name     = p_file.
+**
+*  START-OF-SELECTION.
+*
+*  data: it_type type truxs_t_text_data.
+*
+*  CALL FUNCTION 'TEXT_CONVERT_XLS_TO_SAP'
+*    EXPORTING
+**     I_FIELD_SEPERATOR          =
+*     I_LINE_HEADER              = 'X'
+*      I_TAB_RAW_DATA             = it_type
+*      I_FILENAME                 = p_file
+*    TABLES
+*      I_TAB_CONVERTED_DATA       = it_upd_lfo":t_upload[]
+*   EXCEPTIONS
+*     CONVERSION_FAILED          = 1
+*     OTHERS                     = 2
+*            .
+*  IF SY-SUBRC <> 0.
+** Implement suitable error handling here
+*  ENDIF.
+*
+*  delete it_upd_lfo index 1.
+*
+*  BREAK-POINT.
+
+"""""""""""""""""""""""""""""""""""""""
+
+*  CALL FUNCTION 'F4_FILENAME'
+*    EXPORTING
+*      program_name  = syst-cprog
+*      dynpro_number = syst-dynnr
+*      field_name    = ' '
+*    IMPORTING
+*      file_name     = p_file.
+*
+*
+*START-OF-SELECTION.
+*
+*DATA: i_tab TYPE TABLE OF alsmex_tabline,
+*      wa_tab     TYPE alsmex_tabline,
+*      data_table TYPE TABLE OF string.
+
+
+* CALL FUNCTION 'ALSM_EXCEL_TO_INTERNAL_TABLE'
+*    EXPORTING
+*      filename                = p_file      "----> File Name
+*      i_begin_col             = 1
+*      i_begin_row             = 1
+*      i_end_col               = 21
+*      i_end_row               = 100
+*    TABLES
+*      intern                  = i_tab              " -----> internal table
+*    EXCEPTIONS
+*      inconsistent_parameters = 1
+*      upload_ole              = 2
+*      OTHERS                  = 3.
+*  IF sy-subrc <> 0.
+*    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+*  ENDIF.
+**
+* data(i_tab2) = i_tab.
+* sort i_tab2 descending by col.
+* READ TABLE I_TAB2 INTO DATA(LS2) INDEX SY-TABIX.
+** delete ADJACENT DUPLICATES FROM i_tab2 COMPARING col.
+* DESCRIBE TABLE i_tab2 LINES data(cnt).
+*
+* loop at i_tab2 into DATA(ls).
+* endloop.
+
+
+* LOOP AT  t_tab INTO wa_tab.
+*
+*    ASSIGN COMPONENT wa_tab-col OF STRUCTURE record TO <fs_fld>.
+*    <fs_fld> = wa_tab-value.
+*    AT END OF row.
+*      APPEND record TO data_table.
+*    ENDAT.
+*  ENDLOOP.
+*&---------------------------------------------------------------------*
+*&      Form  LFO
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM LFO .
+
+data: lv_planner type string.
+LS1-ordertyp   = 'ZFOM'.
+LS1-uni_key    = '1'.
+LS1-sorg       = '5020'.
+LS1-distchanl  = '00'.
+LS1-division   = '28'.
+LS1-soldto     = '34364657'.
+LS1-shipto     = '56547567'.
+LS1-adh_no     = '354325346545'.
+LS1-line_itm   = '10'.
+LS1-material   = 'WRWETEF'.
+LS1-quantity   = '2'.
+LS1-uom        = 'EA'.
+
+  APPEND LS1 TO IT_UPD_LFO.
+  CLEAR: LS1.
+
+APPEND 'Sales Order' to header.
+APPEND 'Unique Key' to header.
+APPEND 'Sales Org' to header.
+APPEND 'Distri channel' to header.
+APPEND 'Division' to header.
+APPEND 'Sold to party' to header.
+APPEND 'Ship to party' to header.
+APPEND 'Aadhar No.' to header.
+APPEND 'Line item' to header.
+APPEND 'Material' to header.
+APPEND 'Quantity' to header.
+APPEND 'UOM' to header.
+
+DATA: DD TYPE SY-DATUM.
+DATA: MM TYPE SY-DATUM.
+DATA: YY TYPE SY-DATUM.
+
+DATA: HH TYPE CHAR2.
+DATA: MIN TYPE CHAR2.
+DATA: SEC TYPE CHAR2.
+
+""""""""""""""""""""""""""""""""""""""""""""""""
+*CALL FUNCTION 'ARCHIVFILE_SERVER_TO_SERVER'
+*  EXPORTING
+*    SOURCEPATH             = '/usr/sap/tmp/LFO.xls'
+*   TARGETPATH             = 'C:\'
+** IMPORTING
+**   LENGTH                 =
+* EXCEPTIONS
+*   ERROR_FILE             = 1
+*   NO_AUTHORIZATION       = 2
+*   OTHERS                 = 3
+*          .
+*IF SY-SUBRC <> 0.
+** Implement suitable error handling here
+*ENDIF.
+
+"""""""""""""""""""""""""""""""""""""""""""""""
+DATA(FILE_NAME) = | LFO-{ SY-DATUM } { SY-UZEIT } |.
+
+CALL METHOD CL_GUI_FRONTEND_SERVICES=>FILE_SAVE_DIALOG
+  EXPORTING
+    WINDOW_TITLE              = 'File Directory'
+    DEFAULT_EXTENSION         = 'xls'
+    DEFAULT_FILE_NAME         = FILE_NAME
+*    WITH_ENCODING             =
+*    FILE_FILTER               =
+    INITIAL_DIRECTORY         = '/usr/sap/tmp/LFO.xls'     "'C:\'
+*    PROMPT_ON_OVERWRITE       = 'X'
+  CHANGING
+    FILENAME                  = LV_FILENAME
+    PATH                      = LV_PATH
+    FULLPATH                  = LV_FULLPATH
+    USER_ACTION               = LV_RESULT
+*    FILE_ENCODING            =
+  EXCEPTIONS
+    CNTL_ERROR                = 1
+    ERROR_NO_GUI              = 2
+    NOT_SUPPORTED_BY_GUI      = 3
+    INVALID_DEFAULT_FILE_NAME = 4
+    others                    = 5
+        .
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+*  LV_FNAME = LV_FULLPATH.
+*
+*
+CALL FUNCTION 'GUI_DOWNLOAD'
+  EXPORTING
+   BIN_FILESIZE                    = ' '
+    FILENAME                        = LV_FNAME
+   FILETYPE                        = 'ASC'
+    write_field_separator = 'X'
+  TABLES
+    DATA_TAB                        = IT_UPD_LFO""IT DATA
+   FIELDNAMES                      =  header ""IT HEADER
+ EXCEPTIONS
+   FILE_WRITE_ERROR                = 1
+   NO_BATCH                        = 2
+   GUI_REFUSE_FILETRANSFER         = 3
+   INVALID_TYPE                    = 4
+   NO_AUTHORITY                    = 5
+   UNKNOWN_ERROR                   = 6
+   HEADER_NOT_ALLOWED              = 7
+   SEPARATOR_NOT_ALLOWED           = 8
+   FILESIZE_NOT_ALLOWED            = 9
+   HEADER_TOO_LONG                 = 10
+   DP_ERROR_CREATE                 = 11
+   DP_ERROR_SEND                   = 12
+   DP_ERROR_WRITE                  = 13
+   UNKNOWN_DP_ERROR                = 14
+   ACCESS_DENIED                   = 15
+   DP_OUT_OF_MEMORY                = 16
+   DISK_FULL                       = 17
+   DP_TIMEOUT                      = 18
+   FILE_NOT_FOUND                  = 19
+   DATAPROVIDER_EXCEPTION          = 20
+   CONTROL_FLUSH_ERROR             = 21
+   OTHERS                          = 22.
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  FOM
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM FOM .
+
+*APPEND 'Sales Order'             TO HEADER.
+*APPEND 'Unique Key'              TO HEADER.
+*APPEND 'Sales Org'               TO HEADER.
+*APPEND 'Distri channel'          TO HEADER.
+*APPEND 'Division'                TO HEADER.
+*APPEND 'Sold to party'           TO HEADER.
+*APPEND 'Sold to party name'      TO HEADER.
+*APPEND 'Ship to party'           TO HEADER.
+*APPEND 'Ship to party name'      TO HEADER.
+*APPEND 'Street'                  TO HEADER.
+*APPEND 'Postal code'             TO HEADER.
+*APPEND 'City'                    TO HEADER.
+*APPEND 'Country'                 TO HEADER.
+*APPEND 'Region'                  TO HEADER.
+*APPEND 'Aadhar No.'              TO HEADER.
+*APPEND 'PAN No.'                 TO HEADER.
+*APPEND 'Mobile No.'              TO HEADER.
+*APPEND 'Line item'               TO HEADER.
+*APPEND 'Material'                TO HEADER.
+*APPEND 'Quantity'                TO HEADER.
+*APPEND 'UOM'                     TO HEADER.
+
+
+*LS-sold_name = 'Excel format should be "Text"' .
+*
+*  APPEND LS TO IT_UPD_FOM.
+*  CLEAR: LS.        .
+
+*LS-ordertyp    = 'Sales Order' .
+*LS-uni_key     = 'Unique Key'    .
+*LS-sorg       = 'Sales Org'      .
+*LS-distchanl  = 'Distri channel'  .
+*LS-division   = 'Division'          .
+*LS-soldto     = 'Sold to party'    .
+*LS-sold_name =  'Sold to party name'.
+*LS-shipto     = 'Ship to party'     .
+*LS-ship_name  = 'Ship to party name'.
+*LS-street     = 'Street'            .
+*LS-pst_cd     = 'Postal code'       .
+*LS-city       = 'City'              .
+*LS-country    = 'Country'           .
+*LS-region     = 'Region'            .
+*LS-adh_no     = 'Aadhar No.'        .
+*LS-pan_no     = 'PAN No.'           .
+*LS-mob_no     = 'Mobile No.'        .
+*LS-line_itm   = 'Line item'         .
+*LS-material   = 'Material'          .
+*LS-quantity   = 'Quantity'          .
+*LS-uom        = 'UOM'               .
+*
+*  APPEND LS TO IT_UPD_FOM.
+*  CLEAR: LS.
+
+LS-ordertyp   = 'ZFOM'.
+LS-uni_key    = '1'.
+*LS-sorg       = '5020'.
+*LS-distchanl  = '00'.
+*LS-division   = '28'.
+*LS-soldto     = '34364657'.
+*LS-sold_name =  'EF'.
+*LS-shipto     = '56547567'.
+*LS-ship_name  = 'RTR'.
+*LS-street     = 'FG'.
+*LS-pst_cd     = '655475'.
+*LS-city       = 'FGT'.
+*LS-country    = 'IN'.
+*LS-region     = '45'.
+*LS-adh_no     = '354325346545'.
+*LS-pan_no     = '464645'.
+*LS-mob_no     = '4645756776'.
+*LS-line_itm   = '10'.
+*LS-material   = 'WRWETEF'.
+*LS-quantity   = '2'.
+*LS-uom        = 'EA'.
+
+  APPEND LS TO IT_UPD_FOM.
+  CLEAR: LS.
+
+
+
+DATA: lt_bin   TYPE STANDARD TABLE OF solix,
+      lv_size     TYPE i,
+      lv_filename TYPE string.
+
+*START-OF-SELECTION.
+
+*  SELECT * FROM sflight INTO TABLE @DATA(lt_flight)
+*   UP TO 10 ROWS.
+
+  TRY.
+      cl_salv_table=>factory(
+        IMPORTING
+          r_salv_table   = DATA(lo_table)
+        CHANGING
+          t_table        = it_upd_fom"lt_flight
+      ).
+    CATCH cx_salv_msg.
+  ENDTRY.
+
+  DATA(lv_xml) = lo_table->to_xml( xml_type = if_salv_bs_xml=>c_type_xlsx ).
+
+  "To convert XSTRING to Binary
+  CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+    EXPORTING
+      buffer        = lv_xml
+    IMPORTING
+      output_length = lv_size
+    TABLES
+      binary_tab    = lt_bin.
+
+  DATA(file_name1) = | sh-fom-{ sy-datum } { SY-UZEIT } |.
+
+
+CALL METHOD CL_GUI_FRONTEND_SERVICES=>FILE_SAVE_DIALOG
+  EXPORTING
+    WINDOW_TITLE              = 'File Directory'
+    DEFAULT_EXTENSION         = 'xls'"'XLS'
+    DEFAULT_FILE_NAME         = FILE_NAME1
+*    WITH_ENCODING             =
+*    FILE_FILTER               =
+    INITIAL_DIRECTORY         = 'C:\'
+*    PROMPT_ON_OVERWRITE       = 'X'
+  CHANGING
+    FILENAME                  = LV_FILENAME
+    PATH                      = LV_PATH
+    FULLPATH                  = LV_FULLPATH
+    USER_ACTION               = LV_RESULT
+*    FILE_ENCODING            =
+  EXCEPTIONS
+    CNTL_ERROR                = 1
+    ERROR_NO_GUI              = 2
+    NOT_SUPPORTED_BY_GUI      = 3
+    INVALID_DEFAULT_FILE_NAME = 4
+    others                    = 5
+        .
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+
+  CALL FUNCTION 'GUI_DOWNLOAD'
+    EXPORTING
+      bin_filesize            = lv_size
+      filename                = lv_filename
+      filetype                = 'BIN'
+    TABLES
+      data_tab                = lt_bin
+      FIELDNAMES              =  header ""IT HEADER
+    EXCEPTIONS
+      file_write_error        = 1
+      no_batch                = 2
+      gui_refuse_filetransfer = 3
+      invalid_type            = 4
+      no_authority            = 5
+      unknown_error           = 6
+      header_not_allowed      = 7
+      separator_not_allowed   = 8
+      filesize_not_allowed    = 9
+      header_too_long         = 10
+      dp_error_create         = 11
+      dp_error_send           = 12
+      dp_error_write          = 13
+      unknown_dp_error        = 14
+      access_denied           = 15
+      dp_out_of_memory        = 16
+      disk_full               = 17
+      dp_timeout              = 18
+      file_not_found          = 19
+      dataprovider_exception  = 20
+      control_flush_error     = 21
+      OTHERS                  = 22.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+      WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+
+
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+ENDFORM.
